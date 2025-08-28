@@ -25,6 +25,7 @@ export class ChatbotController {
         this.#chatbotView.renderWelcomeBubble();
         this.#chatbotView.setInputEnabled(true);
         this.#chatbotView.appendBotMessage(firstBotMessage, null, false);
+        return this.#promptService.init(text);
     }
 
     #setupEvents() {
@@ -42,16 +43,41 @@ export class ChatbotController {
         console.log('received', userMsg)
         this.#chatbotView.showTypingIndicator();
         this.#chatbotView.setInputEnabled(false);
-        setTimeout(() => {
-            this.#chatbotView.appendBotMessage("Opa! Ainda não estou pronto para isso.", null, false);
-            this.#chatbotView.setInputEnabled(true);
-            this.#chatbotView.hideTypingIndicator();
-        }, 500);
 
+        const response = await this.#promptService.prompt(userMsg);
+        console.log('response', response)
+        this.#chatbotView.appendBotMessage(response);
+        this.#chatbotView.setInputEnabled(true);
+        this.#chatbotView.hideTypingIndicator();
     }
 
     async #onOpen() {
+        const errors = this.#checkRequirements();
+        if(errors.length) {
+            const messages = errors.join('\n\n');
+            this.#chatbotView.appendBotMessage(messages);
+            this.#chatbotView.setInputEnabled(false);
+            return;
+        }
         this.#chatbotView.setInputEnabled(true);
     }
 
+    #checkRequirements() {
+        const errors = []
+        // @ts-ignore
+        const iChrome = window.chrome
+        if (!iChrome) {
+            errors.push(
+                '⚠️ Este recurso só funciona no Google Chrome ou Chrome Canary (versão recente).'
+            )
+        }
+        if (!('LanguageModel' in window)) {
+            errors.push("⚠️ As APIs nativas de IA não estão ativas.");
+            errors.push("Ative a seguinte flag em chrome://flags/:");
+            errors.push("- Prompt API for Gemini Nano (chrome://flags/#prompt-api-for-gemini-nano)");
+            errors.push("Depois reinicie o Chrome e tente novamente.");
+        }
+
+        return errors
+    }
 }
